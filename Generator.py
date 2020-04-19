@@ -7,11 +7,12 @@ class Generator(nn.Module):
     """
     The generator G maps a latent vector z to a data-space.
     """
-    def __init__(self, number_of_gpu=0, feature_map_size=64,
-                 number_of_color_channels=1, latent_vector_size=100, number_of_attr=40):
+    def __init__(self, params):
         super(Generator, self).__init__()
-        self.color_channels = number_of_color_channels
-        self.number_of_gpu = number_of_gpu
+        self.color_channels = params['number_of_channels']
+        feature_map_size = params['feature_map_size']
+        latent_vector_size = params['latent_vector_size']
+        number_of_attr = params['number_of_attr']
 
         # The size of the feature maps that are propagated through the generator
         self.number_of_random_layers = 4  # K
@@ -57,7 +58,7 @@ class Generator(nn.Module):
             nn.BatchNorm2d(feature_map_size),
             nn.ReLU(True),
             # state size. (gen_feature_map_size) x 32 x 32
-            nn.ConvTranspose2d(in_channels=feature_map_size, out_channels=number_of_color_channels,
+            nn.ConvTranspose2d(in_channels=feature_map_size, out_channels=self.color_channels,
                                kernel_size=4, stride=2, padding=1, bias=False),
         )
 

@@ -13,61 +13,40 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-import CelebADataset as datasets
+import CelebADataset as Datasets
 from Generator import Generator
 from Discriminator import Discriminator
 from Solver import GANSolver
 from IPython.display import HTML
 
-# Set random seed for reproducibility
-manualSeed = 999
+# Preliminary variables (in alphabetical order)
+batch_size = 128  # Batch size during training
+dataroot = "../Datasets/celeba-min"  # Dataset's root directory
+image_size = 64  # Spatial size of training images. All will end up image_size x image_size
+latent_vector_size = 100  # Size of z latent vector used as random input of the generator
+manualSeed = 999  # Set random seed for reproducibility
 # manualSeed = random.randint(1, 10000) # use if you want new results
+number_of_color_channels = 3  # Number of channels in the training images
+number_of_gpu = 0  # Number of GPUs available. Use 0 for CPU mode.
+workers = 0  # Number of workers for dataloader
+
+# Initialize random seed for random and torch package
 print("Random Seed: ", manualSeed)
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
+# Find the available device and use it
+device = torch.device("cuda:0" if (torch.cuda.is_available() and number_of_gpu > 0) else "cpu")
 
-# Root directory for dataset
-dataroot = "../Datasets/celeba"
 
-# Number of workers for dataloader
-workers = 0
-
-# Batch size during training
-batch_size = 128
-
-# Spatial size of training images. All images will be resized to this size using a transformer
-image_size = 64
-
-# Number of channels in the training images. For color images this is 3
-number_of_color_channels = 3
-
-# Size of z latent vector (i.e. size of generator input)
-latent_vector_size = 100
-
-# Size of feature maps in generator G
-gen_feature_map_size = 64
-
-# Size of feature maps in discriminator D
-dis_feature_map_size = 64
-
-# Number of GPUs available. Use 0 for CPU mode.
-number_of_gpu = 0
-
-# We can use an image folder dataset the way we have it setup.
-# Create the dataset
-dataset = datasets.CelebADataset(dataroot, dataroot+"/list_attr_celeba.txt",
+# Create the data set using the data root directory with the images and attributes
+dataset = Datasets.CelebADataset(dataroot, dataroot+"/list_attr_celeba.txt",
                                  transform=transforms.Compose([
                                     transforms.ToPILImage(),
                                     transforms.Resize(image_size),
                                     transforms.CenterCrop(image_size),
                                     transforms.ToTensor()]))
-
-# Create the dataloader
+# Create the DataLoader object using the previously created data set
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
-
-
-# Decide which device we want to run on
-device = torch.device("cuda:0" if (torch.cuda.is_available() and number_of_gpu > 0) else "cpu")
 
 # Plot some training images
 sample_batched = next(iter(dataloader))
@@ -99,8 +78,15 @@ def weights_init(model):
         nn.init.constant_(model.bias.data, 0)
 
 
+generator_parameters = {  # Used in the Generator's constructor
+    'feature_map_size': 64,
+    'number_of_channels': number_of_color_channels,
+    'latent_vector_size': latent_vector_size,
+    'number_of_attr': 40
+}
+
 # Create the generator
-netG = Generator(number_of_gpu, gen_feature_map_size, number_of_color_channels, latent_vector_size).to(device)
+netG = Generator(generator_parameters).to(device)
 
 # Handle multi-gpu if desired
 if (device.type == 'cuda') and (number_of_gpu > 1):
@@ -127,6 +113,11 @@ plt.imshow(np.transpose(vutils.make_grid(fake.to(device)[:64],
                                          (1, 2, 0)))
 plt.show()
 
+
+discriminator_parameters = {}  # Used in the Discriminator's constructor
+
+# Size of feature maps in discriminator D
+dis_feature_map_size = 64
 
 # Create the Discriminator
 netD = Discriminator(number_of_gpu, dis_feature_map_size, number_of_color_channels).to(device)
