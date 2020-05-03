@@ -8,19 +8,19 @@ class Discriminator(nn.Module):
     Discriminator agent that tells if an input image, given the input labels comes from the real distribution
     or a fake one. The output is true or false.
     """
-    def __init__(self, number_of_gpu=0, feature_map_size=64,
-                 number_of_color_channels=1, number_of_attr=40):
+    def __init__(self, params):
         super(Discriminator, self).__init__()
-        self.number_of_gpu = number_of_gpu
-        self.feature_map_size = feature_map_size
+        feature_map_size = self.feature_map_size = params['feature_map_size']
+        self.number_of_attr = params['number_of_attr']
+        number_of_color_channels = params['num_of_channels']
 
-        self.embeddingLayer = nn.Embedding(number_of_attr, 50)
-        num_nodes = feature_map_size * feature_map_size  # As it is a square picture of 64x64
-        self.FCLayer = nn.Linear(50*number_of_attr, num_nodes)  # Embedding layer as input and returns a 64x64 array
+        self.embeddingLayer = nn.Embedding(self.number_of_attr, 50)
+        num_nodes = self.feature_map_size * self.feature_map_size  # As it is a square picture of 64x64
+        self.FCLayer = nn.Linear(50*self.number_of_attr, num_nodes)  # Embedding layer as input and returns a 64x64 array
 
         self.main = nn.Sequential(
             # input is (number_of_color_channels+1) x 64 x 64. The "+1" comes from embedding the labels layer.
-            nn.Conv2d(in_channels=number_of_color_channels+1, out_channels=feature_map_size,
+            nn.Conv2d(in_channels=number_of_color_channels+1, out_channels=self.feature_map_size,
                       kernel_size=4, stride=2, padding=1, bias=False),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
             # State size: (dis_feature_map_size) x 32 x 32

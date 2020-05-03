@@ -22,7 +22,7 @@ class GANSolver(object):
         self.G_loss_history = []
         self.D_loss_history = []
 
-    def train(self, dataloader, fixed_noise, num_epochs=10, img_list=[]):
+    def train(self, dataloader, fixed_noise, fixed_attributes, num_epochs=10, img_list=[]):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         # Establish convention for real and fake labels during training
@@ -49,7 +49,7 @@ class GANSolver(object):
                 b_size = images_device.size(0)
                 label = torch.full((b_size,), real_label, device=device)
                 # Forward pass real batch through D
-                output = self.discriminator(images_device, attributes_device).view(-1)
+                output = self.discriminator(images_device, attributes_device).flatten()
                 # Calculate loss on all-real batch
                 errD_real = self.loss_func(output, label)
                 # Calculate gradients for D in backward pass
@@ -64,7 +64,7 @@ class GANSolver(object):
                 fake = self.generator(noise, fake_attributes)
                 label.fill_(fake_label)
                 # Classify all fake batch with the Discriminator
-                output = self.discriminator(fake.detach(), fake_attributes).view(-1)
+                output = self.discriminator(fake.detach(), fake_attributes).flatten()
                 # Calculate D's loss on the all-fake batch
                 errD_fake = self.loss_func(output, label)
                 # Calculate the gradients for this batch
@@ -79,7 +79,7 @@ class GANSolver(object):
                 self.generator.zero_grad()
                 label.fill_(real_label)  # fake labels are real for generator cost
                 # Since we just updated D, perform another forward pass of all-fake batch through D
-                output = self.discriminator(fake).view(-1)
+                output = self.discriminator(fake.detach(), fake_attributes).flatten()
                 # Calculate G's loss based on this output
                 errG = self.loss_func(output, label)
                 # Calcualte gradients for G
@@ -103,7 +103,7 @@ class GANSolver(object):
                 # Check how the generator is doing by saving G's output on fixed_noise
                 if (iters % 500 == 0) or ((epoch == num_epochs - 1) and (i == len(dataloader) - 1)):
                     with torch.no_grad():
-                        fake = self.generator(fixed_noise).detach().cpu()
+                        fake = self.generator(fixed_noise, fixed_attributes).detach().cpu()
                     img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
 
                 iters += 1

@@ -2,11 +2,8 @@ from __future__ import print_function
 # %matplotlib inline
 import random
 import torch.nn as nn
-import torch.nn.parallel
-import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data
-import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 import numpy as np
@@ -20,7 +17,7 @@ from Solver import GANSolver
 from IPython.display import HTML
 
 # Preliminary variables (in alphabetical order)
-batch_size = 128  # Batch size during training
+batch_size = 64  # Batch size during training
 dataroot = "../Datasets/celeba-min"  # Dataset's root directory
 image_size = 64  # Spatial size of training images. All will end up image_size x image_size
 latent_vector_size = 100  # Size of z latent vector used as random input of the generator
@@ -92,8 +89,7 @@ netG = Generator(generator_parameters).to(device)
 if (device.type == 'cuda') and (number_of_gpu > 1):
     netG = nn.DataParallel(netG, list(range(number_of_gpu)))
 
-# Apply the weight init function to randomly initialize all the weights
-# to mean=0, stdev=0.2
+# Apply the weight init function to randomly initialize all the weights to mean=0, stdev=0.2
 netG.apply(weights_init)
 
 # Print the model
@@ -104,34 +100,40 @@ noise = torch.randn(batch_size, latent_vector_size, 1, 1, device=device)  # Rand
 fake_attributes = torch.LongTensor(np.random.randint(0, 1, (batch_size, 40)))  # Random vector of attributes
 # Generate fake image batch with the Generator
 fake = netG(noise, fake_attributes)
-plt.figure(figsize=(8, 8))
-plt.axis("off")
-plt.title("First Generator outcome.")
-plt.imshow(np.transpose(vutils.make_grid(fake.to(device)[:64],
-                                         padding=2,
-                                         normalize=True).cpu(),
-                                         (1, 2, 0)))
-plt.show()
+#plt.figure(figsize=(8, 8))
+#plt.axis("off")
+#plt.title("First Generator outcome.")
+#plt.imshow(np.transpose(vutils.make_grid(fake[:112].cpu().detach(), padding=2, normalize=True), (1, 2, 0)))
+#plt.show()
 
 
-discriminator_parameters = {}  # Used in the Discriminator's constructor
-
-# Size of feature maps in discriminator D
-dis_feature_map_size = 64
+discriminator_parameters = {  # Used in the Discriminator's constructor
+    'feature_map_size': 64,
+    'num_of_channels': number_of_color_channels,
+    'number_of_attr': 40
+}
 
 # Create the Discriminator
-netD = Discriminator(number_of_gpu, dis_feature_map_size, number_of_color_channels).to(device)
+netD = Discriminator(discriminator_parameters).to(device)
 
-# Handle multi-gpy if desired
+# Handle multi-gpu if desired
 if(device.type == 'cuda') and (number_of_gpu > 1):
     netD = nn.DataParallel(netD, list(range(number_of_gpu)))
 
-# Apply the weights_init function to randomly initialize all weights
-# to mean=0, stdev=0.2
+# Apply the weights_init function to randomly initialize all weights to mean=0, stdev=0.2
 netD.apply(weights_init)
 
 # Print the model
 print(netD)
+
+# Let's use the Discriminator to test functionality:
+# Use the fake images made by the Generator
+fake_labels = netD(fake, fake_attributes)
+#plt.figure(figsize=(8, 8))
+#plt.axis("off")
+#plt.title("First Discriminator outcome.")
+#plt.hist(fake_labels.flatten().cpu().detach(), 100)
+#plt.show()
 
 
 if __name__ == '__main__':
@@ -141,7 +143,8 @@ if __name__ == '__main__':
 
     # Create batch of latent vectors that we will use to visualize
     # the progression of the generator
-    fixed_noise = torch.randn(64, latent_vector_size, 1, 1, device=device)
+    fixed_noise = torch.randn(2, latent_vector_size, 1, 1, device=device)
+    fixed_attributes = torch.LongTensor(np.random.randint(0, 1, (2, 40)))
 
     # Now the trainning loop
 
@@ -149,7 +152,7 @@ if __name__ == '__main__':
     img_list = []
 
     # Number of training epochs
-    num_epochs = 5
+    num_epochs = 1
 
     # Learning rate for optimizers
     lr = 0.0002
@@ -163,9 +166,9 @@ if __name__ == '__main__':
     optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
 
     solver = GANSolver(netG, netD, optimizerG, optimizerD, criterion)
-    solver.train(dataloader, fixed_noise, num_epochs, img_list)
+    solver.train(dataloader, fixed_noise, fixed_attributes, num_epochs, img_list)
 
-    plt.figure(figsize=(10,5))
+    plt.figure(figsize=(10, 5))
     plt.title("Generator and Discriminator Loss During Training")
     plt.plot(solver.G_loss_history,label="G")
     plt.plot(solver.D_loss_history,label="D")
